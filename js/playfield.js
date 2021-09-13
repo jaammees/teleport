@@ -1,4 +1,4 @@
-var g_startLevel = 4;
+var g_startLevel = 0;
 var g_playfield = null;
 var g_playfieldScale = 1;
 var g_raycaster = null;
@@ -122,6 +122,8 @@ var Playfield = function() {
         for(var i = 0; i < energyBlocks.length; i++) {
           if(energyBlocks[i].mesh.visible == false) {
             energyBlocks[i].mesh.visible = true;
+            g_sound.playSound(SOUND_ENERGY);
+            
             energyBlocks[i].mesh.position.set(
               energyFrom.x + Math.random() * 0.4 - 0.2, 
               energyFrom.y  + Math.random() * 0.4 - 0.2, 
@@ -183,6 +185,7 @@ var Playfield = function() {
         for(var i = 0; i < energyDrainBlocks.length; i++) {
           if(energyDrainBlocks[i].mesh.visible == false) {
             energyDrainBlocks[i].mesh.visible = true;
+            g_sound.playSound(SOUND_ENERGY2);
             energyDrainBlocks[i].mesh.position.set(
               energyDrainFrom.x + Math.random() * 0.4 - 0.2, 
               energyDrainFrom.y  + Math.random() * 0.4 - 0.2, 
@@ -286,6 +289,7 @@ var Playfield = function() {
     currentLevel++;
     if(currentLevel >= g_levels.length) {
       currentLevel = 0;
+      speak('Congratulations, you have finished all of the levels');
     }
     
     _this.gotoLevel(currentLevel);
@@ -803,7 +807,12 @@ var Playfield = function() {
       return;
     }
 
-    g_sound.playSound(SOUND_EXIT);
+    if(padType == 2) {
+      g_sound.playSound(SOUND_DONE);
+
+    } else {
+      g_sound.playSound(SOUND_TELEPORT);
+    }
 
     gameState = STATE_IN_TELEPORT;
     player.startTeleport(x, y, z, rx, rz, padType, function(teleportState, padType) {
@@ -845,6 +854,8 @@ var Playfield = function() {
 
   _this.increasePlayerEnergy = function() {
     player.increaseEnergy();
+
+    g_sound.playSound(SOUND_ADD_ENERGY);
   }
 
   _this.decreasePlayerEnergy = function() {
@@ -854,6 +865,8 @@ var Playfield = function() {
   _this.gameOver = function() {
 
     if(gameState !== STATE_GAME_OVER) {
+      g_sound.playSound(SOUND_GAME_OVER);
+
       speak('Energy Drained. Game Over');
       _this.setEnergyTransferring(false);
       _this.setEnergyDrainTransferring(false);

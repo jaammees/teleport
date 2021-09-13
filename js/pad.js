@@ -276,7 +276,7 @@ var Pad = function(playfield, playfieldEntity, index, type) {
 
             playfield.setEnergyDrainTransferring(true);
             playfield.decreasePlayerEnergy();
-            g_sound.playSound(SOUND_REMOVE);
+            g_sound.playSound(SOUND_ENERGY);
 
             playerDrainTime = lastUpdate;
           }

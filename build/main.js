@@ -104,7 +104,7 @@ AFRAME.registerComponent('game', {
   }
 });
 
-var g_startLevel = 2;
+var g_startLevel = 0;
 var g_playfield = null;
 var g_playfieldScale = 1;
 var g_raycaster = null;
@@ -119,6 +119,7 @@ var STATE_PLAYING               = 1;
 var STATE_IN_TELEPORT           = 2;
 var STATE_LEVEL_FINISHED        = 3;
 var STATE_TELEPORT_NEXT         = 4;
+var STATE_GAME_OVER             = 5;
 
 var Playfield = function() {
   var currentLevel = 0;
@@ -172,7 +173,6 @@ var Playfield = function() {
   var levelInfo = null;
   var playfieldHolder = null;
 
-  var energyBlocks = [];
 
   var infoPanels = [];
   var leftButtonDownTime = false;
@@ -180,6 +180,7 @@ var Playfield = function() {
 
   var threeJSScene = g_scene.object3D;
 
+  var energyBlocks = [];
   var energyFrom = new THREE.Vector3();
   var energyTo = new THREE.Vector3();
   var energyTransferring = false;
@@ -207,7 +208,7 @@ var Playfield = function() {
         var distance = vectorZero.distanceTo(energyVector);
         energyVector.normalize();
 
-        var travel = timeDelta * 0.01;
+        var travel = timeDelta * 0.008;
         if(travel > distance) {
           travel = distance;
         }
@@ -223,19 +224,87 @@ var Playfield = function() {
     }
 
     if(energyTransferring) {
-      if(time - lastEnergyTransfer > 80) {
+      if(time - lastEnergyTransfer > 50) {
         for(var i = 0; i < energyBlocks.length; i++) {
           if(energyBlocks[i].mesh.visible == false) {
             energyBlocks[i].mesh.visible = true;
-            energyBlocks[i].mesh.position.set(energyFrom.x + Math.random() * 0.2, energyFrom.y  + Math.random() * 0.3, energyFrom.z  + Math.random() * 0.2);
+            g_sound.playSound(SOUND_ENERGY);
+            
+            energyBlocks[i].mesh.position.set(
+              energyFrom.x + Math.random() * 0.4 - 0.2, 
+              energyFrom.y  + Math.random() * 0.4 - 0.2, 
+              energyFrom.z  + Math.random() * 0.4 - 0.2);
             break;
           }
         }
         lastEnergyTransfer = time;
       }
     }
-
   }
+
+
+  var energyDrainBlocks = [];
+  var energyDrainFrom = new THREE.Vector3();
+  var energyDrainTo = new THREE.Vector3();
+  var energyDrainTransferring = false;
+  var energyDrainVector = new THREE.Vector3();
+  var lastEnergyDrainTransfer = 0;
+
+
+  _this.setEnergyDrainFromTo = function(from, to) {
+    energyDrainFrom.set(from.x, from.y, from.z);
+    energyDrainTo.set(to.x, to.y + 1.5, to.z);
+  }
+
+  _this.setEnergyDrainTransferring = function(transferring) {
+    energyDrainTransferring = transferring;
+  }
+
+  _this.updateEnergyDrainBlocks = function(time, timeDelta) {
+
+    for(var i = 0; i < energyDrainBlocks.length; i++) {
+      if(energyDrainBlocks[i].mesh.visible) {
+        var mesh = energyDrainBlocks[i].mesh;
+        
+
+        energyDrainVector.set(energyDrainTo.x - mesh.position.x, energyDrainTo.y - mesh.position.y, energyDrainTo.z - mesh.position.z);
+        var distance = vectorZero.distanceTo(energyDrainVector);
+        energyDrainVector.normalize();
+
+        var travel = timeDelta * 0.008;
+        if(travel > distance) {
+          travel = distance;
+        }
+
+        if(travel < 0.001) {
+          mesh.visible = false;
+        } else {
+          mesh.position.set(mesh.position.x + travel * energyDrainVector.x, 
+            mesh.position.y + travel * energyDrainVector.y,
+            mesh.position.z + travel * energyDrainVector.z)
+        }
+      }
+    }
+
+    if(energyDrainTransferring) {
+      if(time - lastEnergyDrainTransfer > 40) {
+        for(var i = 0; i < energyDrainBlocks.length; i++) {
+          if(energyDrainBlocks[i].mesh.visible == false) {
+            energyDrainBlocks[i].mesh.visible = true;
+            g_sound.playSound(SOUND_ENERGY2);
+            energyDrainBlocks[i].mesh.position.set(
+              energyDrainFrom.x + Math.random() * 0.4 - 0.2, 
+              energyDrainFrom.y  + Math.random() * 0.4 - 0.2, 
+              energyDrainFrom.z  + Math.random() * 0.4 - 0.2);
+            break;
+          }
+        }
+        lastEnergyDrainTransfer = time;
+      }
+    }
+  }
+
+  
 
   function createPlayerEntity() {
     playerEntity = document.createElement('a-entity');
@@ -270,8 +339,8 @@ var Playfield = function() {
     text.setAttribute('value', 'Start Position');
     text.setAttribute('scale', '3 3 3');
     text.setAttribute('side', 'double');
-    text.setAttribute('color', '#fff');
-    text.setAttribute('position', '0 2.5 2');
+    text.setAttribute('color', '#bbb');
+    text.setAttribute('position', '0 3 2');
     text.setAttribute('rotation', '0 90 0');
     playerEntity.append(text);
 
@@ -293,8 +362,8 @@ var Playfield = function() {
     exitText.setAttribute('value', 'Exit');
     exitText.setAttribute('scale', '3 3 3');
     exitText.setAttribute('side', 'double');
-    exitText.setAttribute('color', '#fff');
-    exitText.setAttribute('position', '0 2.5 0.6');
+    exitText.setAttribute('color', '#bbb');
+    exitText.setAttribute('position', '0 3 0.6');
     exitText.setAttribute('rotation', '0 90 0');
     exitEntity.append(exitText);
 
@@ -326,6 +395,7 @@ var Playfield = function() {
     currentLevel++;
     if(currentLevel >= g_levels.length) {
       currentLevel = 0;
+      speak('Congratulations, you have finished all of the levels');
     }
     
     _this.gotoLevel(currentLevel);
@@ -378,18 +448,49 @@ var Playfield = function() {
     infoPanels.push(leftInfo);
 
     
-    var energyMaterial = new THREE.MeshStandardMaterial( {color: 0x6666ff, transparent: true, opacity: 0.7 } );
+    var energyMaterial = new THREE.MeshStandardMaterial( {color: 0x6666ff, transparent: true, opacity: 1, emissive: 0x4444aa } );
+    var energyMaterial2 = new THREE.MeshStandardMaterial( {color: 0xffffff, transparent: true, opacity: 1, emissive: 0xffffff } );
+
     energyMaterial.flatShading = true;
     var energyGeometry = new THREE.BoxGeometry( 0.05, 0.05, 0.05 );
 
     for(var i = 0; i < 30; i++) {
-      var mesh = new THREE.Mesh(energyGeometry, energyMaterial);
+      var mesh = false;
+
+      if(Math.random() > 0.7) {
+        mesh = new THREE.Mesh(energyGeometry, energyMaterial);
+        var scale = 0.5 + Math.random() * 0.5;
+        mesh.scale.set(scale, scale, scale);
+      } else {
+        mesh = new THREE.Mesh(energyGeometry, energyMaterial2);
+        var scale = Math.random() * 0.3;
+        mesh.scale.set(scale, scale, scale);
+      }
       //mesh.visible = false;
       energyBlocks.push({
         mesh: mesh
       });
       threeJSScene.add(mesh);
     }
+
+    for(var i = 0; i < 30; i++) {
+      var mesh = false;
+      if(Math.random() > 0.7) {
+        mesh = new THREE.Mesh(energyGeometry, energyMaterial);
+        var scale = 0.5 + Math.random() * 0.5;
+        mesh.scale.set(scale, scale, scale);
+      } else {
+        mesh = new THREE.Mesh(energyGeometry, energyMaterial2);
+        var scale = Math.random() * 0.4;
+        mesh.scale.set(scale, scale, scale);
+      }
+
+      energyDrainBlocks.push({
+        mesh: mesh
+      });
+      threeJSScene.add(mesh);
+    }
+
 
     laserLeft.addEventListener('buttondown', function(e) {
 
@@ -399,6 +500,10 @@ var Playfield = function() {
       if(g_leftButtonDownCount == 0) {
         g_leftButtonDownCount++;
         _this.buttonDown(e);
+      }
+
+      if(gameState === STATE_LEVEL_PREVIEW) {
+        _this.startLevel();
       }
 
     });
@@ -428,6 +533,10 @@ var Playfield = function() {
     laserRight.addEventListener('buttondown', function(e) {
       rightButtonDownTime = lastUpdateTime;
       rightInfo.setButtonDown(true);
+
+      if(gameState === STATE_LEVEL_PREVIEW) {
+        _this.startLevel();
+      }
 
 
       if(g_rightButtonDownCount == 0) {
@@ -548,16 +657,20 @@ var Playfield = function() {
     //  cameraOffsetZ = -camera.object3D.position.z;
   
       playfield.setAttribute('position', new THREE.Vector3(-xMid * g_playfieldScale, 1, zMid * g_playfieldScale));
-      levelInfo.setAttribute('position', '0 0 -0.5');
+      levelInfo.setAttribute('position', '0 1 -0');
+      startButton.setYPosition(1.8);
     } else {
       playfield.setAttribute('position', new THREE.Vector3(-xMid * g_playfieldScale, 1.4, zMid * g_playfieldScale));
-      levelInfo.setAttribute('position', '0 -0 0');
+      levelInfo.setAttribute('position', '0 0.1 0');
+      startButton.setYPosition(0.86);
     }
   }
 
   _this.gotoLevel = function(level) {
     
     clearInstructions();  
+    leftInfo.setRestartText('');
+    rightInfo.setRestartText('');
 
     // clear the old level
     _this.clearLevel();
@@ -638,13 +751,26 @@ var Playfield = function() {
 
   }
 
+
+  function unhighlightAllPads() {
+    for(var i = 0; i < pads.length; i++) {
+      pads[i].unhighlight();
+    }
+  }
+
   _this.startLevel = function() {
+
+    if(gameState == STATE_PLAYING) {
+      return;
+    }
 
     for(var i = 0; i < pads.length; i++) {
       pads[i].setClickable(true);
     }
     
     var startRotation = 0;
+
+    unhighlightAllPads();
     
     player.startTeleport(playerStart.x, playerStart.y, playerStart.z, 0, 0, 0, function(teleportState, padType) {
       playerEntity.object3D.visible = false;
@@ -659,6 +785,7 @@ var Playfield = function() {
       player.setPosition(playerStart.x, playerStart.y, playerStart.z, 0, startRotation, 0);
 
       if(teleportState == 'arrived') {
+        unhighlightAllPads();
         playfield.setAttribute('position', new THREE.Vector3(0, 0, 0));
         playfield.setAttribute('rotation', '0 0 0');
         g_playfieldScale = 1;
@@ -746,7 +873,7 @@ var Playfield = function() {
   _this.getOnPad = function() {
     return onPad;
   }
-
+ 
   _this.noEnergy = function() {
 
     leftInfo.setText(0, 'No Energy');
@@ -761,11 +888,21 @@ var Playfield = function() {
 
   }
 
+  _this.hasEnergy = function() {
+    for(var i = 0; i < 4; i++) {
+      var t = '';
+      if(i < g_levels[currentLevel].text.length) {
+        t = g_levels[currentLevel].text[i];
+      }
+      leftInfo.setText(i, t);
+      rightInfo.setText(i, t);
+    }
+  }
+  
+
   _this.teleportPlayer = function(x, y, z, rx, rz, padIndex, padType, callback) {
 
 
-    console.error('player enery = ');
-    console.log(player.getEnergy());
     if(player.getEnergy() == 0) {
       if(g_vrMode) {
         speak("No energy to teleport, hold the button for one second to restart");
@@ -776,7 +913,12 @@ var Playfield = function() {
       return;
     }
 
-    g_sound.playSound(SOUND_EXIT);
+    if(padType == 2) {
+      g_sound.playSound(SOUND_DONE);
+
+    } else {
+      g_sound.playSound(SOUND_TELEPORT);
+    }
 
     gameState = STATE_IN_TELEPORT;
     player.startTeleport(x, y, z, rx, rz, padType, function(teleportState, padType) {
@@ -796,6 +938,8 @@ var Playfield = function() {
 
         if(padType == 2) {
           gameState = STATE_LEVEL_FINISHED;
+          finishedTime = lastUpdateTime;
+          speak('Level Complete. Well done');
         }
       }
     });
@@ -816,6 +960,8 @@ var Playfield = function() {
 
   _this.increasePlayerEnergy = function() {
     player.increaseEnergy();
+
+    g_sound.playSound(SOUND_ADD_ENERGY);
   }
 
   _this.decreasePlayerEnergy = function() {
@@ -823,7 +969,16 @@ var Playfield = function() {
   }
 
   _this.gameOver = function() {
-    speak('Game Over');
+
+    if(gameState !== STATE_GAME_OVER) {
+      g_sound.playSound(SOUND_GAME_OVER);
+
+      speak('Energy Drained. Game Over');
+      _this.setEnergyTransferring(false);
+      _this.setEnergyDrainTransferring(false);
+      gameState = STATE_GAME_OVER;
+      finishedTime = lastUpdateTime;
+    }
   }
 
   _this.tick = function(time, timeDelta) {
@@ -833,9 +988,15 @@ var Playfield = function() {
     }
 
     if(gameState == STATE_LEVEL_FINISHED) {
-      if(time - finishedTime > 800) {
+      if(time - finishedTime > 3200) {
         gameState = STATE_TELEPORT_NEXT;
         finishedTime = time;
+      }
+    }
+
+    if(gameState == STATE_GAME_OVER) {
+      if(time - finishedTime > 3600) {
+        _this.gotoLevel(currentLevel);
       }
     }
 
@@ -894,6 +1055,8 @@ var Playfield = function() {
         if(!inAbsorb) {
           if(!buttonRestartWarningGiven) {
             speak("Button held for one second, the level will restart in three");
+            leftInfo.setRestartText('Restarting Level...');
+            rightInfo.setRestartText('Restarting Level...');
             buttonRestartWarningGiven = true;
             buttonRestartTime = time;
             warningNumber = 3;
@@ -917,6 +1080,10 @@ var Playfield = function() {
 
       
       } else {
+        if(buttonRestartWarningGiven) {
+          leftInfo.setRestartText('');
+          rightInfo.setRestartText('');
+        }
         buttonRestartWarningGiven = false;
       }
       
@@ -967,6 +1134,7 @@ var Playfield = function() {
     player.tick(time, timeDelta);
     exit.tick(time, timeDelta);
     _this.updateEnergyBlocks(time, timeDelta);
+    _this.updateEnergyDrainBlocks(time, timeDelta);
   }
 }
 
@@ -1109,6 +1277,9 @@ var Player = function(playfield) {
 
   _this.increaseEnergy = function() {
     if(energy < ENERGY_MAX) {
+      if(energy == 0) {
+        playfield.hasEnergy();
+      }
       energy++;
       playfield.showEnergy();
     }
@@ -1269,16 +1440,78 @@ var Player = function(playfield) {
 var Exit = function(parent) {
   var _this = this;
 
+  var lastUpdate = 0;
+
   var cylinder = document.createElement('a-cylinder');
-  cylinder.setAttribute('color', '#00ffff');
-  cylinder.setAttribute('scale', '0.4 2 0.4');
-  cylinder.setAttribute('position', '0 1 0');
+  cylinder.setAttribute('color', '#0044ff');
+  cylinder.setAttribute('opacity', '0.6');
+  cylinder.setAttribute('scale', '0.44 0.02 0.44');
+  cylinder.setAttribute('position', '0 0.02 0');
   parent.append(cylinder);
+
+  var particles = [];
+
+  
+  var energyGeometry = new THREE.BoxGeometry( 0.1, 30, 0.1 );
+
+  for(var i = 0; i < 30; i++) {
+    var energyMaterial = new THREE.MeshStandardMaterial( {color: 0x1111ff, transparent: true, opacity: 0.8, emissive: 0x4444ff } );
+    var energyMaterial2 = new THREE.MeshStandardMaterial( {color: 0xffffff, transparent: true, opacity: 0.8, emissive: 0xffffff } );
+    energyMaterial.flatShading = true;
+    var mesh = false;
+
+    if(Math.random() > 0.7) {
+      mesh = new THREE.Mesh(energyGeometry, energyMaterial);
+      var scale = 0.5 + Math.random() * 0.5;
+      mesh.scale.set(scale, scale, scale);
+    } else {
+      mesh = new THREE.Mesh(energyGeometry, energyMaterial2);
+      var scale = Math.random() * 0.3;
+      mesh.scale.set(scale, scale, scale);
+    }
+    //mesh.visible = false;
+    particles.push({
+      mesh: mesh
+    });
+    cylinder.object3D.add(mesh);
+  }
+
 
 
   _this.tick = function(time, timeDelta) {
 
+    
+    for(var i = 0; i < particles.length; i++) {
+      if(particles[i].mesh.visible) {
+        distance = particles[i].mesh.position.y + timeDelta * 0.06;
+
+        particles[i].mesh.material.opacity = (120 - distance) / 120;
+        if(distance > 120) {
+          particles[i].mesh.visible = false;
+        }
+        particles[i].mesh.position.setY(distance);
+      }
+    }
+
+    if(time - lastUpdate > 50) {
+      for(var i = 0; i < particles.length; i++) {
+        if(particles[i].mesh.visible == false) {
+          
+          particles[i].mesh.visible = true;
+          particles[i].mesh.material.opacity = 0.6;
+          particles[i].mesh.position.set(
+            Math.random() * 1.5 - 0.7, 
+            12, 
+            Math.random() * 1.5 - 0.7);
+          break;
+        }
+      }
+      lastUpdate = time;
+    }
   }
+
+
+
 }
 
 
@@ -1365,7 +1598,7 @@ var Pad = function(playfield, playfieldEntity, index, type) {
       pad.setAttribute( 'transparent', true);
       pad.setAttribute('opacity', '1');
 
-      pad.setAttribute('scale', '1.2 0.02 1.2');
+      pad.setAttribute('scale', '1.06 0.02 1.06');
       pad.setAttribute('position', new THREE.Vector3(0, -0.01, 0));
       pad.addEventListener('mouseenter', mouseEnter );
       pad.addEventListener('mouseleave', mouseLeave );
@@ -1444,7 +1677,7 @@ var Pad = function(playfield, playfieldEntity, index, type) {
     if(padType === PAD_WITH_ROBOT) {
       robotEntity = document.createElement('a-entity');
       var geometry = new THREE.ConeGeometry( 0.4, 1.8, 4 );
-      robotMaterial = new THREE.MeshStandardMaterial( {color: 0xffff00, transparent: true } );
+      robotMaterial = new THREE.MeshStandardMaterial( {color: 0x383848, transparent: true } );
       robotMaterial.flatShading = true;
       robotMesh = new THREE.Mesh( geometry, robotMaterial );
       robotMesh.position.set(0, 0.9, 0);
@@ -1545,11 +1778,8 @@ var Pad = function(playfield, playfieldEntity, index, type) {
       var intersections = g_raycaster.intersectObjects(collisionObjects, true);
 
 
-      //var intersections = g_raycaster.intersectObjects( g_scene.object3D.children, true);
-      
       if(intersections.length > 0) {
 
-//        console.log('intersection!');
 
         x = intersections[0].point.x;
         y = intersections[0].point.y;
@@ -1561,22 +1791,15 @@ var Pad = function(playfield, playfieldEntity, index, type) {
           if(!trackPlayer) {
             trackPlayer = true;
 
+            playfield.setEnergyDrainTransferring(true);
             playfield.decreasePlayerEnergy();
-            g_sound.playSound(SOUND_REMOVE);
+            g_sound.playSound(SOUND_ENERGY);
 
             playerDrainTime = lastUpdate;
           }
         } 
       }
 
-      /*
-      if(intersections.length > 10) {
-        x = intersections[10].point.x;
-        y = intersections[10].point.y;
-        z = intersections[10].point.z;
-        console.log('intersect!');
-      }
-*/
       positions[index++] = x;
       positions[index++] = y;
       positions[index++] = z;
@@ -1616,6 +1839,11 @@ var Pad = function(playfield, playfieldEntity, index, type) {
     entity.removeChild(robotEntity);
     robotEntity = null;
     playfield.increasePlayerEnergy();
+
+    if(trackPlayer) {
+      trackPlayer = false;
+      playfield.setEnergyDrainTransferring(false);
+    }
     
 
     // remove robot beams
@@ -1647,8 +1875,6 @@ var Pad = function(playfield, playfieldEntity, index, type) {
     var playerPosition = playfield.getPlayer().getPosition();
     var direction = new THREE.Vector3(playerPosition.x - posX, playerPosition.y - posY, playerPosition.z - posZ);
 
-    var distance = direction.length();
-    //console.log('distance = ' + distance);
         
     return direction.dot(normal) >= 0;
   }
@@ -1670,7 +1896,7 @@ var Pad = function(playfield, playfieldEntity, index, type) {
     }
   }
 
-  var unhighlight = function() {
+  _this.unhighlight = function() {
     padHighlighted = false;
     if(pad) {
       switch(padType) {
@@ -1695,18 +1921,15 @@ var Pad = function(playfield, playfieldEntity, index, type) {
 
   var mouseLeave = function(event) {
     padHighlighted = false;
-    unhighlight();
+    _this.unhighlight();
   }
 
   var mouseClick = function(event) {
 
     /*
-    console.log('pad clicik');
     if(!mouseDownAbsorb) {
 
-      console.log('click not absorb');
       if(playfield.getGameState() == STATE_PLAYING && canTeleportTo() && !hasRobot) {
-        console.log('click goto teleport');
         playfield.teleportPlayer(posX, posY, posZ, rotX, rotZ, padIndex, padType, function() {
           unhighlight();
         });
@@ -1749,7 +1972,7 @@ var Pad = function(playfield, playfieldEntity, index, type) {
       if(playfield.getGameState() == STATE_PLAYING && canTeleportTo() && !hasRobot) {
         
         playfield.teleportPlayer(posX, posY, posZ, rotX, rotZ, padIndex, padType, function() {
-          unhighlight();
+          _this.unhighlight();
         });
       }
     }
@@ -1762,7 +1985,10 @@ var Pad = function(playfield, playfieldEntity, index, type) {
   }
 
   _this.playerTeleported = function(playerPadIndex, playerPadType) {
-    if(padType === playerPadType && padIndex !== playerPadIndex && padType !== NORMAL_PAD) {
+    if(padType == BLOCKING_PAD) {
+      return;
+    }
+    if(padType === playerPadType && padIndex !== playerPadIndex && padType !== NORMAL_PAD && padType != PAD_WITH_ROBOT) {
 
       pad.setAttribute('wireframe', true);
       box.setAttribute('wireframe', true);
@@ -1771,15 +1997,18 @@ var Pad = function(playfield, playfieldEntity, index, type) {
       pad.setAttribute('class', '');
       isSolid = false;
     } else {
-      pad.setAttribute('wireframe', false);
+      if(pad) {
+        pad.setAttribute('wireframe', false);
+        pad.setAttribute('class', 'clickable');
+      }
       box.setAttribute('wireframe', false);
       box.setAttribute('opacity', 1);
       box.setAttribute('class', 'clickable');
-      pad.setAttribute('class', 'clickable');
       isSolid = true;
     }
     trackPlayer = false;
-    unhighlight();
+    playfield.setEnergyDrainTransferring(false);
+    _this.unhighlight();
   }
 
   _this.getIsSolid = function() {
@@ -1849,7 +2078,6 @@ var Pad = function(playfield, playfieldEntity, index, type) {
         if(padWorld === false) {
           padWorld = new THREE.Vector3(0, 0, 0);
           pad.object3D.getWorldPosition(padWorld);
-
         }
 
         energyToPoint.set(0, 0, 0);
@@ -1886,6 +2114,19 @@ var Pad = function(playfield, playfieldEntity, index, type) {
         }
 
 
+        if(padWorld === false) {
+          padWorld = new THREE.Vector3(0, 0, 0);
+          pad.object3D.getWorldPosition(padWorld);
+        }
+
+        energyToPoint.set(0, 0, 0);
+        var playerPosition = playfield.getPlayerPosition();
+        energyToPoint.set(playerPosition.x, playerPosition.y - 0.05, playerPosition.z);
+
+        playfield.setEnergyDrainFromTo(energyToPoint, padWorld);
+
+
+
         if(time - playerDrainTime > 2000) {
           playfield.decreasePlayerEnergy();
           g_sound.playSound(SOUND_REMOVE);
@@ -1910,25 +2151,18 @@ g_sound = null;
 
 // sounds
 var SOUND_CLICK = 1;
-var SOUND_EXIT = 2;
+var SOUND_TELEPORT = 2;
 var SOUND_DIE = 3;
-var SOUND_JUMP = 4;
 var SOUND_FALL = 5;
-var SOUND_GREEN = 6;
-var SOUND_RED = 7;
 
 var SOUND_REMOVE = 8;
 var SOUND_PLACE = 9;
-/*
-var soundJump = 3;
-var soundDash = 4;
-var soundRed = 5;
-var soundGreen = 6;
-var soundBlue = 7;
-var soundYellow = 8;
-var soundPurple = 9;
-*/
 var SOUND_LEVEL_END = 10;
+var SOUND_ENERGY = 11;
+var SOUND_ENERGY2 = 12;
+var SOUND_DONE = 13;
+var SOUND_GAME_OVER = 14;
+var SOUND_ADD_ENERGY = 15;
 
 var Sound = function() {
   var audioContext = null;
@@ -1972,13 +2206,9 @@ var Sound = function() {
       case SOUND_REMOVE:
         noteLength = 1 / 32;
         audioSource.type = 'triangle';
-        audioSource.frequency.setValueAtTime(midiToFreq(69), time);    // G3
-
-//        audioSource.frequency.setValueAtTime(midiToFreq(59), time + noteLength);  // D4
-//        audioSource.frequency.setValueAtTime(midiToFreq(62), time + noteLength * 2);  // D4
+        audioSource.frequency.setValueAtTime(midiToFreq(45), time);    // G3
 
         gain.gain.setValueAtTime(0, time);
-//        gain.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 1/128);
         gain.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 1/16);
 
         gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + noteLength * 3);
@@ -1986,36 +2216,51 @@ var Sound = function() {
         soundLength = noteLength * 3;
 
         break;
+      case SOUND_ENERGY:
+        noteLength = 1 / 32;
+        audioSource.type = 'triangle';
+        audioSource.frequency.setValueAtTime(midiToFreq(45), time);    // G3
+
+
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 1/16);
+
+        gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + noteLength * 3);
+
+        soundLength = noteLength * 3;
+
+        break;
+
+        case SOUND_ENERGY2:
+          noteLength = 1 / 32;
+          audioSource.type = 'sawtooth';
+          audioSource.frequency.setValueAtTime(midiToFreq(33), time);    // G3
+  
+  
+          gain.gain.setValueAtTime(0, time);
+          gain.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 1/16);
+  
+          gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + noteLength * 3);
+  
+          soundLength = noteLength * 3;
+  
+          break;
+
+          
       case SOUND_PLACE:
       case SOUND_CLICK:
         noteLength = 1 / 32;
         audioSource.type = 'triangle';
-        audioSource.frequency.setValueAtTime(midiToFreq(69), time);    // G3
+        audioSource.frequency.setValueAtTime(midiToFreq(60), time);    // G3
 
-//        audioSource.frequency.setValueAtTime(midiToFreq(59), time + noteLength);  // D4
-//        audioSource.frequency.setValueAtTime(midiToFreq(62), time + noteLength * 2);  // D4
 
         gain.gain.setValueAtTime(0, time);
         gain.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 1/128);
-//        gain.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 1/16);
 
         gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + noteLength * 3);
 
         soundLength = noteLength * 3;
         
-      /*
-        noteLength = 1/16;
-        audioSource.type = 'triangle';
-        audioSource.frequency.setValueAtTime(midiToFreq(55), time);    // G3
-        audioSource.frequency.setValueAtTime(midiToFreq(59), time + noteLength);  // D4
-        audioSource.frequency.setValueAtTime(midiToFreq(62), time + noteLength * 2);  // D4
-
-        gain.gain.setValueAtTime(0, time);
-        gain.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 1/64);
-        gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + noteLength * 3);
-
-        soundLength = noteLength * 4;
-*/
       break;
 
       case SOUND_FALL: 
@@ -2048,7 +2293,8 @@ var Sound = function() {
         soundLength = noteLength * 2;
 
       break;
-      case SOUND_JUMP:
+
+      case SOUND_ADD_ENERGY:
         noteLength = 1/12;
         audioSource.type = 'triangle';
         audioSource.frequency.setValueAtTime(midiToFreq(55), time);    // G3
@@ -2061,21 +2307,8 @@ var Sound = function() {
         soundLength = noteLength * 2;
 
         break;
-        /*
-      case soundDash:
-        audioSource.buffer = boostNoiseBuffer;
-
-        biquadFilter.type = 'lowpass';
-
-        biquadFilter.frequency.setValueAtTime(440, time);
-        biquadFilter.frequency.linearRampToValueAtTime(440, time + noteLength * 2);  
-        gain.gain.linearRampToValueAtTime(1, audioContext.currentTime + 1/64);
-        gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + noteLength * 2);
-
-        soundLength = noteLength * 2;
-        break;
-        */
-      case SOUND_GREEN:
+/*
+        case SOUND_GREEN:
         noteLength = 1/4;
         audioSource.type = 'triangle';
         audioSource.frequency.setValueAtTime(midiToFreq(43), time);    // G2
@@ -2099,7 +2332,7 @@ var Sound = function() {
         soundLength = noteLength;
 
       break;
-
+*/
 
       /*
       case soundYellow:
@@ -2127,7 +2360,7 @@ var Sound = function() {
 
       break;
       */
-      case SOUND_EXIT:
+      case SOUND_TELEPORT:
         noteLength = 1/12;
         audioSource.type = 'triangle';
         audioSource.frequency.setValueAtTime(midiToFreq(55), time);    // G4
@@ -2139,8 +2372,37 @@ var Sound = function() {
         gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + noteLength * 6);
 
         soundLength = noteLength * 6;
-
       break;
+
+      case SOUND_DONE:
+        noteLength = 1/12;
+        audioSource.type = 'sawtooth';
+        audioSource.frequency.setValueAtTime(midiToFreq(43), time);    // G4
+        audioSource.frequency.setValueAtTime(midiToFreq(50), time + noteLength * 4);  // D4
+        audioSource.frequency.setValueAtTime(midiToFreq(48), time + noteLength * 8);    // G4
+        audioSource.frequency.setValueAtTime(midiToFreq(41), time + noteLength * 12);    // G4
+        audioSource.frequency.setValueAtTime(midiToFreq(43), time + noteLength * 16);    // G4
+
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(0.18, audioContext.currentTime + 1/32);
+        gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + noteLength * 26);
+
+        soundLength = noteLength * 26;
+      break;
+
+      case SOUND_GAME_OVER:
+        noteLength = 1/12;
+        audioSource.type = 'sawtooth';
+        audioSource.frequency.setValueAtTime(midiToFreq(50), time);    // G4
+        audioSource.frequency.setValueAtTime(midiToFreq(41), time + noteLength * 4);  // D4
+        audioSource.frequency.setValueAtTime(midiToFreq(43), time + noteLength * 8);    // G4
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 1/64);
+        gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + noteLength * 14);
+
+        soundLength = noteLength * 14;
+      break;
+
     }
 
     audioSource.start(audioContext.currentTime);
@@ -2153,6 +2415,7 @@ var Sound = function() {
 var StartButton = function(playfield) {
   var _this = this;
   var holder = document.getElementById('playfield-holder');
+  var levelText = document.getElementById('level-text');
 
   //<a-box id="start-button" color="#00ff00" position="0 -5 0" class="clickable"></a-box>
 
@@ -2161,12 +2424,13 @@ var StartButton = function(playfield) {
 
   var clickBox = document.createElement('a-box');
   clickBox.setAttribute('color', '#00f');
-  clickBox.setAttribute('scale', '0.05 0.15 1');  
-  clickBox.setAttribute('position', '0 0 0.3');
+  clickBox.setAttribute('scale', '0.05 0.25 1');  
+  clickBox.setAttribute('position', '0 0.1 0.5');
   clickBox.setAttribute('class', 'clickable');
   clickBox.setAttribute('visible', false);
   startButton.append(clickBox);
 
+  /*
   var triangle = document.createElement('a-triangle');
   triangle.setAttribute('color', '#191');
   triangle.setAttribute('rotation', '0 90 90');
@@ -2174,7 +2438,7 @@ var StartButton = function(playfield) {
   triangle.setAttribute('scale', '0.15 0.18 0.15');
   
   startButton.append(triangle);
-
+*/
 
   /*
   var text = document.createElement('a-text');
@@ -2197,12 +2461,14 @@ var StartButton = function(playfield) {
   });
 
   clickBox.addEventListener('mouseenter', function() {
-    triangle.setAttribute('color', '#3f3');
+    //triangle.setAttribute('color', '#3f3');
+    levelText.setAttribute('color', '#fff');
     g_sound.playSound(SOUND_CLICK);
   });
 
   clickBox.addEventListener('mouseleave', function() {
-    triangle.setAttribute('color', '#191');
+    //triangle.setAttribute('color', '#191');
+    levelText.setAttribute('color', '#aaa');
   });
 
   _this.hide = function() {
@@ -2214,6 +2480,11 @@ var StartButton = function(playfield) {
   _this.show = function() {
     clickBox.setAttribute('class', 'clickable');
     startButton.object3D.visible = true;
+  }
+
+  _this.setYPosition = function(y) {
+
+    startButton.object3D.position.setY(y);
   }
 
 }
@@ -2310,17 +2581,193 @@ var g_levels = [
       "disappear",
       ""
     ],
+    "energy": 4,
+    "robotSpeed": 30,
     "data": [
-      [START_PAD, 0, 0, 0,  0,0,0 ],
-      [NORMAL_PAD, 0, 0,-4, 270,0,0 ],
-      [NORMAL_PAD, 0, 0,-4, 270,0,0 ],
-      [NORMAL_PAD, 2, 0,-5,   0,0,0 ],
-      [EXIT_PAD, 1, 0.5,-20,0,0,0],
-      [NORMAL_PAD,-5,1,-10,  0,0,270],
-      [NORMAL_PAD,-5,1,-15, 0,0,0]      
+      [START_PAD, 0, 0, 3,  0,0,0 ],
+      [GREEN_PAD, 0, 0,-3, 0,0,0 ],
+
+      [GREEN_PAD, 0, 2.4,-10, 0,0,0 ],
+
+      [PAD_WITH_ROBOT, -3.5, 2.5, -10, 0, 0, 0],
+      [PAD_WITH_ROBOT, 3.5, 2.5, -10, 0, 0, 0],
+
+      [GREEN_PAD, 2, 3.6,-10, 0,0,90],
+      [BLOCKING_PAD, 2.4, 3.6,-9, 90,0,0],
+
+      [GREEN_PAD, -2, 3.6,-10, 0,0,270],
+      [BLOCKING_PAD, -2.4, 3.6,-9, 90,0,0],
+
+      [NORMAL_PAD, 0, 7,-8, 0,0,180],
+      [BLOCKING_PAD, 0, 6,-6, 90,0,0],
+
+      [BLOCKING_PAD, 0, 3.5,-19, 270,0,0],
+      [EXIT_PAD, 0, 3.5,-20,0,0,0],
+
+      [NORMAL_PAD, 5.5, 6.5,-22, 0,0,90],
+      [GREEN_PAD, 5.5, 6.5,-21, 270,0,0],
+
+      [NORMAL_PAD, -5.5, 6.5,-22, 0,0,270],
+      [GREEN_PAD, -5.5, 6.5,-21, 270,0,0],
     ],
-    "energy": 2
+    
+  },
+
+  {
+    "text": [
+      "Level 5.",
+      "When on a red pad,",
+      "other red pads will",
+      "disappear",
+      ""
+    ],
+    "energy": 2,
+    "robotSpeed": 40,
+    "data": [
+      [START_PAD, 0, 0, 3,  0,0,0 ],
+      [RED_PAD, 0, 0,  -5, 0,0,0 ],
+
+
+      [PAD_WITH_ROBOT, 4, 0, -5, 0, 0, 0],
+      [RED_PAD, 3.5, 0,  -3.5, 90,0,0 ],
+      [BLOCKING_PAD, 3.5, 0.2,  -6, 90,0,0 ],
+
+      [RED_PAD, 3, 2,  -5, 0,0,90 ],
+
+      [PAD_WITH_ROBOT, -4, 0, -5, 0, 0, 0],
+      [RED_PAD, -3.5, 0,  -3.5, 90,0,0 ],
+      [BLOCKING_PAD, -3.5, 0.2,  -6, 90,0,0 ],
+      [RED_PAD, -3, 2,  -5, 0,0, 270],
+
+
+      [RED_PAD, 0, 5,  -12, 270,0,0 ],
+
+      [GREEN_PAD, 0, 6.5,  -19, 90,0,0 ],
+
+
+      [NORMAL_PAD, 0, 12.5,  -16.5, 0,0,180 ],
+      [GREEN_PAD, 0, 12.4,  -16.5, 0,0,0 ],
+
+
+      [EXIT_PAD, 0, 6,-21,0,0,0],
+
+    ],
+    
+  },
+
+
+  {
+    "text": [
+      "Level 6.",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "energy": 5,
+    "robotSpeed": 40,
+    "data": [
+      [START_PAD, 0, 2, 3,  0,0,0 ],
+
+
+      [RED_PAD, 2.5, 0,  -6, 0,0,0 ],
+
+      [BLOCKING_PAD, -0.1, 2, -6, 0, 0, 90],
+      [BLOCKING_PAD, -0.1, 0.6, -6, 0, 0, 90],
+      [GREEN_PAD, -2.5, 0,  -6, 0,0,0 ],
+
+
+      [RED_PAD, -5.5, 13.9,  -12, 0,0,0 ],
+      [GREEN_PAD, -5.5, 14,  -12, 0,0,180 ],
+
+      
+
+      [RED_PAD, 5.5, 10,  -16, 90,0,0 ],
+      [GREEN_PAD, 5.5, 10,  -15.7, 90,0,0 ],
+      [BLOCKING_PAD, 3.2, 7.5, -8, 90, 0, 0],
+
+
+      [BLOCKING_PAD, 0, 9.7, -20, 90, 0, 0],
+
+      [EXIT_PAD, 0, 9,-21,0,0,0],
+      [BLOCKING_PAD, -0.9, 9.7, -21, 0, 0, 90],
+      [BLOCKING_PAD, 0.7, 9.7, -21, 0, 0, 90],
+
+      //[BLOCKING_PAD, 1.6, 10, -20, 90, 0, 0],
+      [BLOCKING_PAD, -2.8, 11.6, -20, 90, 0, 0],      
+
+      [BLOCKING_PAD, -1.4, 5, -14, 90, 0, 0],      
+
+      [RED_PAD, 2, 4.9, -18, 0,0,0 ],
+      [BLOCKING_PAD, -0.1, 6.9, -18, 0, 0, 90],
+      [BLOCKING_PAD, -0.1, 5.5, -18, 0, 0, 90],
+      [GREEN_PAD, -2, 4.9, -18, 0,0,0 ],
+
+
+      [RED_PAD, 0, 11, -28, 90,0,0 ],
+
+      [GREEN_PAD, 0, 11, -27.9, 270,0,0 ],
+    ],
+    
+  },
+
+  {
+    "text": [
+      "Level 7.",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "energy": 3,
+    "robotSpeed": 30,
+    "data": [
+      [START_PAD, 0, 3, 4,  0,0,0 ],
+      [PAD_WITH_ROBOT, 2, 0, -5, 0, 0, 0],
+      [NORMAL_PAD, -2, 0, -5, 0, 0, 0],
+
+      [GREEN_PAD, -4, 6.5, -6.3, 270, 0, 0],
+
+      [RED_PAD, -7, 8, -15, 0, 0, 270],
+      [PAD_WITH_ROBOT, -3.5, 7.5, -15, 0, 0, 0],
+
+
+      [GREEN_PAD, 4, 12, -24, 270, 0, 0],
+      [RED_PAD, 4, 12, -24, 90, 0, 0],
+
+      [EXIT_PAD, 0, 9,-21,0,0,0],
+    ],    
+  },
+
+
+  {
+    "text": [
+      "Level 8.",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "energy": 3,
+    "robotSpeed": 30,
+    "data": [
+      [START_PAD, 0, 0, 4,  0,0,0 ],
+
+      [PAD_WITH_ROBOT, 0, 6, -6, 0, 0, 0],
+      [RED_PAD, 0, 5.4, -6, 180, 0, 0],
+
+      [NORMAL_PAD, 0, 7.5, -12.2, 90, 0, 0],
+      [RED_PAD, 0, 7.5, -12, 270, 0, 0],
+
+      [RED_PAD, 0, 11, -1.5, 270, 0, 0],
+
+      [EXIT_PAD, 0, 7.5,-21,0,0,0],
+    ],    
   }
+
+
+
+
 
 ];
 
@@ -2395,6 +2842,14 @@ var InfoPanel = function(parent) {
     panel.append(text[i]);
   }
 
+
+  var restartText = document.createElement('a-text');
+  restartText.setAttribute('value', '');
+  restartText.setAttribute('position',  new THREE.Vector3(-0.38, -0.76, 0)); 
+  restartText.setAttribute('scale', '0.3 0.3 0.3');
+  restartText.setAttribute('anchor', 'left');
+  panel.append(restartText);
+
   for(var i = 0; i < 8; i++) {
     var bar = document.createElement('a-plane');
     bar.setAttribute('color', '#0f0');
@@ -2424,6 +2879,11 @@ var InfoPanel = function(parent) {
     for(i = energy; i < energyBars.length; i++) {
       energyBars[i].setAttribute('color', '#111');
     }
+  }
+
+  _this.setRestartText = function(t) {
+    //Restarting Level...
+    restartText.setAttribute('value', t);
   }
 
   _this.setButtonDown= function(down) {
