@@ -1,9 +1,17 @@
 // say things
 var english_voice = '';
-var available_voices = window.speechSynthesis.getVoices();
+var available_voices = null;
+
+if(typeof window.speechSynthesis != 'undefined') {
+  available_voices = window.speechSynthesis.getVoices();
+}
 var utterance = false;
 
 function speak(text) {
+  if(typeof window.speechSynthesis == 'undefined') {
+    return;
+  }
+
   if(!available_voices || available_voices.length == 0) {
     available_voices = window.speechSynthesis.getVoices();
   }

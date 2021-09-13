@@ -563,8 +563,13 @@ var Playfield = function() {
   _this.gotoLevel = function(level) {
     
     clearInstructions();  
-    leftInfo.setRestartText('');
-    rightInfo.setRestartText('');
+    if(leftInfo != null) {
+      leftInfo.setRestartText('');
+    }
+
+    if(rightInfo != null) {
+      rightInfo.setRestartText('');
+    }
 
     // clear the old level
     _this.clearLevel();
@@ -573,9 +578,15 @@ var Playfield = function() {
     currentLevel = level;
     gameState = STATE_LEVEL_PREVIEW;
 
+
     for(var i = 0; i < 4; i++) {
-      leftInfo.setText(i, '');
-      rightInfo.setText(i, '');
+      if(leftInfo != null) {
+        leftInfo.setText(i, '');
+      }
+
+      if(rightInfo != null) {
+        rightInfo.setText(i, '');
+      }
     }
 
     var text = level + 1;
@@ -770,15 +781,19 @@ var Playfield = function() {
  
   _this.noEnergy = function() {
 
-    leftInfo.setText(0, 'No Energy');
-    leftInfo.setText(1, 'Hold button for 1 second');
-    leftInfo.setText(2, 'to restart level');
-    leftInfo.setText(3, '');
+    if(leftInfo != null) {
+      leftInfo.setText(0, 'No Energy');
+      leftInfo.setText(1, 'Hold button for 1 second');
+      leftInfo.setText(2, 'to restart level');
+      leftInfo.setText(3, '');
+    }
 
-    rightInfo.setText(0, 'No Energy');
-    rightInfo.setText(1, 'Hold button for 1 second');
-    rightInfo.setText(2, 'to restart level');
-    rightInfo.setText(3, '');
+    if(rightInfo != null) {
+      rightInfo.setText(0, 'No Energy');
+      rightInfo.setText(1, 'Hold button for 1 second');
+      rightInfo.setText(2, 'to restart level');
+      rightInfo.setText(3, '');
+    }
 
   }
 
@@ -788,8 +803,13 @@ var Playfield = function() {
       if(i < g_levels[currentLevel].text.length) {
         t = g_levels[currentLevel].text[i];
       }
-      leftInfo.setText(i, t);
-      rightInfo.setText(i, t);
+      if(leftInfo != null) {      
+        leftInfo.setText(i, t);
+      }
+
+      if(rightInfo != null) {
+        rightInfo.setText(i, t);
+      }
     }
   }
   
@@ -949,8 +969,13 @@ var Playfield = function() {
         if(!inAbsorb) {
           if(!buttonRestartWarningGiven) {
             speak("Button held for one second, the level will restart in three");
-            leftInfo.setRestartText('Restarting Level...');
-            rightInfo.setRestartText('Restarting Level...');
+            if(leftInfo != null) {
+              leftInfo.setRestartText('Restarting Level...');
+            }
+
+            if(rightInfo != null) {
+              rightInfo.setRestartText('Restarting Level...');
+            }
             buttonRestartWarningGiven = true;
             buttonRestartTime = time;
             warningNumber = 3;
@@ -975,8 +1000,14 @@ var Playfield = function() {
       
       } else {
         if(buttonRestartWarningGiven) {
-          leftInfo.setRestartText('');
-          rightInfo.setRestartText('');
+
+          if(leftInfo != null) {
+            leftInfo.setRestartText('');
+          }
+
+          if(rightInfo != null) {
+            rightInfo.setRestartText('');
+          }
         }
         buttonRestartWarningGiven = false;
       }
