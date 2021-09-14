@@ -78,6 +78,7 @@ var Pad = function(playfield, playfieldEntity, index, type) {
           pad.setAttribute('color', '#aaaaaa');
       }
 
+      
       pad.setAttribute( 'transparent', true);
       pad.setAttribute('opacity', '1');
 
@@ -362,9 +363,12 @@ var Pad = function(playfield, playfieldEntity, index, type) {
     return direction.dot(normal) >= 0;
   }
 
-  var highlight = function() {
+  _this.highlight = function() {
     if(playfield.getGameState() == STATE_PLAYING && canTeleportTo()) {
-      g_sound.playSound(SOUND_CLICK);
+
+      if(!padHighlighted) {
+        g_sound.playSound(SOUND_CLICK);
+      }
 
       switch(padType) {
         case GREEN_PAD:
@@ -377,6 +381,7 @@ var Pad = function(playfield, playfieldEntity, index, type) {
           pad.setAttribute('color', '#ffd');
       }
     }
+    padHighlighted = true;
   }
 
   _this.unhighlight = function() {
@@ -398,12 +403,10 @@ var Pad = function(playfield, playfieldEntity, index, type) {
 
 
   var mouseEnter = function(event) {
-    padHighlighted = true;
-    highlight();
+    _this.highlight();
   }
 
   var mouseLeave = function(event) {
-    padHighlighted = false;
     _this.unhighlight();
   }
 
@@ -467,6 +470,7 @@ var Pad = function(playfield, playfieldEntity, index, type) {
     }
   }
 
+  
   _this.playerTeleported = function(playerPadIndex, playerPadType) {
     if(padType == BLOCKING_PAD) {
       return;
@@ -496,6 +500,32 @@ var Pad = function(playfield, playfieldEntity, index, type) {
 
   _this.getIsSolid = function() {
     return isSolid;
+  }
+
+  _this.getPadHighlighted = function() {
+    return padHighlighted;
+  }
+
+  _this.getPadIndex = function() {
+    return padIndex;
+  }
+  _this.getPadObject3D = function() {
+    if(pad && typeof pad.object3D != 'undefined') {
+      pad.object3D.userData.padIndex = padIndex;
+      if(pad.object3D.children.length) {
+        pad.object3D.children[0].userData.padIndex = padIndex;
+      }
+      return pad.object3D;
+    }
+
+    return null;
+  }
+
+  _this.getBoxObject3D = function() {
+    if(box && typeof box.object3D != 'undefined') {
+      return box.object3D;
+    }
+    return null;
   }
 
   _this.getIndex = function() {

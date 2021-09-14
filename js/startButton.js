@@ -41,8 +41,7 @@ var StartButton = function(playfield) {
   holder.append(startButton);
 
   clickBox.addEventListener('click', function() {
-    g_sound.init();
-    g_sound.playSound(SOUND_CLICK);
+
     playfield.startLevel();
   });
 

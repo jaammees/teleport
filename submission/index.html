@@ -19,12 +19,12 @@
 
         <a-entity id="camera-offset" position="0 0 0">
           <a-camera id="camera" look-controls="reverseMouseDrag: true"></a-camera>
-          <a-entity id="laser-right" laser-controls="hand: right" raycaster="objects: .clickable">
+          <a-entity id="laser-right" controller-connected laser-controls="hand: right" raycaster="objects: .vr-clickable">
             <a-entity id="right-info" rotation="-100 0 0" scale="0.1 0.1 0.1" position="-0.13 0 0">
             </a-entity>
           </a-entity>
 
-          <a-entity id="laser-left" laser-controls="hand: left"  raycaster="objects: .clickable">
+          <a-entity id="laser-left" controller-connected laser-controls="hand: left"  raycaster="objects: .vr-clickable">
             <a-entity id="left-info" rotation="-100 0 0" scale="0.1 0.1 0.1" position="0.13 0 0">
             </a-entity>
 

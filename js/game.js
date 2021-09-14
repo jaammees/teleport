@@ -43,6 +43,8 @@ AFRAME.registerComponent('game', {
     g_sound = new Sound();
 
     document.addEventListener('mousedown', function(e) {
+      g_sound.init();
+
       if(!g_vrMode) {
         if(mouseDownCount == 0) {
           mouseDownCount++;

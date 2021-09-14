@@ -1,6 +1,7 @@
 // say things
 var english_voice = '';
 var available_voices = null;
+var g_hasSpeech = false;
 
 if(typeof window.speechSynthesis != 'undefined') {
   available_voices = window.speechSynthesis.getVoices();
@@ -12,6 +13,8 @@ function speak(text) {
     return;
   }
 
+
+  g_hasSpeech = true;
   if(!available_voices || available_voices.length == 0) {
     available_voices = window.speechSynthesis.getVoices();
   }
